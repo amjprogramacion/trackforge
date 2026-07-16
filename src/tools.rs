@@ -30,16 +30,20 @@ fn find_tool(name: &str) -> Result<PathBuf> {
     }
 
     bail!(
-        "No se encontro `{name}`. Ejecuta `powershell -ExecutionPolicy Bypass -File tools\\install-ffmpeg-windows.ps1` para descargar la copia portable."
+        "Could not find `{name}`. On Windows, run `powershell -ExecutionPolicy Bypass -File tools\\install-ffmpeg-windows.ps1`; on macOS, run `./tools/install-ffmpeg-macos.sh` or install FFmpeg with `brew install ffmpeg`."
     )
 }
 
-fn candidate_paths(name: &str) -> Result<Vec<PathBuf>> {
-    let executable_name = if cfg!(windows) {
+pub fn executable_name(name: &str) -> String {
+    if cfg!(windows) {
         format!("{name}.exe")
     } else {
         name.to_string()
-    };
+    }
+}
+
+fn candidate_paths(name: &str) -> Result<Vec<PathBuf>> {
+    let executable_name = executable_name(name);
 
     let mut roots = Vec::new();
 
@@ -49,7 +53,7 @@ fn candidate_paths(name: &str) -> Result<Vec<PathBuf>> {
 
     add_root_with_ancestors(
         &mut roots,
-        env::current_dir().context("No se pudo leer el directorio actual")?,
+        env::current_dir().context("Could not read the current directory")?,
     );
 
     if let Ok(exe_path) = env::current_exe()

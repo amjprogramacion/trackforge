@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "../vendor/ffmpeg/bin/ffmpeg": "vendor/ffmpeg/bin/ffmpeg",
+      "../vendor/ffmpeg/bin/ffprobe": "vendor/ffmpeg/bin/ffprobe"
+    }
+  }
+}

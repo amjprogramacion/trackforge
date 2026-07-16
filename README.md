@@ -12,10 +12,22 @@ powershell -ExecutionPolicy Bypass -File tools\install-ffmpeg-windows.ps1
 
 Esto descarga `ffmpeg.exe` y `ffprobe.exe` sin instalarlos en el sistema ni tocar el `PATH`.
 
+En macOS, descarga una copia portable de FFmpeg para incluirla en la build:
+
+```bash
+./tools/install-ffmpeg-macos.sh
+```
+
+Esto descarga binarios estaticos de `ffmpeg` y `ffprobe` para la arquitectura de tu Mac y los deja en `vendor/ffmpeg/bin`, listos para la CLI y para empaquetar la app Tauri de macOS.
+
 Tambien puedes usar una carpeta propia con:
 
 ```powershell
 $env:TRACKFORGE_FFMPEG_DIR = "C:\ruta\a\ffmpeg\bin"
+```
+
+```bash
+export TRACKFORGE_FFMPEG_DIR="/ruta/a/ffmpeg/bin"
 ```
 
 Si no encuentra una copia portable, TrackForge intenta usar `ffmpeg` y `ffprobe` desde el `PATH`.
@@ -28,7 +40,7 @@ Si no encuentra una copia portable, TrackForge intenta usar `ffmpeg` y `ffprobe`
 
 Modo interactivo:
 
-```powershell
+```bash
 cargo run
 ```
 
@@ -42,32 +54,32 @@ La app te pedira, en orden:
 
 Modo no interactivo:
 
-```powershell
-cargo run -- "C:\videos\pelicula.mkv" --audio-index 1 --format ac3 --mode add --make-default -o "C:\videos\pelicula_ac3.mkv"
+```bash
+cargo run -- "/videos/pelicula.mkv" --audio-index 1 --format ac3 --mode add --make-default -o "/videos/pelicula_ac3.mkv"
 ```
 
 Reemplazar el archivo original solo si la conversion termina bien:
 
-```powershell
-cargo run -- "C:\videos\pelicula.mkv" --audio-index 1 --format ac3 --mode replace --replace-original
+```bash
+cargo run -- "/videos/pelicula.mkv" --audio-index 1 --format ac3 --mode replace --replace-original
 ```
 
 Eliminar una o varias pistas de audio por stream index:
 
-```powershell
-cargo run -- "C:\videos\pelicula.mkv" --delete-audio 1,3
+```bash
+cargo run -- "/videos/pelicula.mkv" --delete-audio 1,3
 ```
 
 Eliminar pistas y reemplazar el archivo original solo si termina bien:
 
-```powershell
-cargo run -- "C:\videos\pelicula.mkv" --delete-audio 1,3 --replace-original
+```bash
+cargo run -- "/videos/pelicula.mkv" --delete-audio 1,3 --replace-original
 ```
 
 Ver el comando `ffmpeg` sin ejecutar la conversion:
 
-```powershell
-cargo run -- "C:\videos\pelicula.mkv" --audio-index 1 --format opus --mode replace --dry-run
+```bash
+cargo run -- "/videos/pelicula.mkv" --audio-index 1 --format opus --mode replace --dry-run
 ```
 
 Formatos soportados por ahora:

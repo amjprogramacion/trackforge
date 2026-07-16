@@ -102,19 +102,19 @@ pub fn probe_file(input: &Path, tools: &ToolPaths) -> Result<Probe> {
             "-show_format",
             input
                 .to_str()
-                .ok_or_else(|| anyhow!("La ruta del archivo no es UTF-8 valida"))?,
+                .ok_or_else(|| anyhow!("The file path is not valid UTF-8"))?,
         ])
         .output()
-        .with_context(|| format!("No se pudo ejecutar {}", tools.ffprobe.display()))?;
+        .with_context(|| format!("Could not run {}", tools.ffprobe.display()))?;
 
     if !output.status.success() {
         bail!(
-            "ffprobe no pudo leer el archivo:\n{}",
+            "ffprobe could not read the file:\n{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
 
-    serde_json::from_slice(&output.stdout).context("ffprobe devolvio JSON invalido")
+    serde_json::from_slice(&output.stdout).context("ffprobe returned invalid JSON")
 }
 
 pub fn duration_seconds(probe: &Probe) -> Option<f64> {

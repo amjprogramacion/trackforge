@@ -16,41 +16,41 @@ use tools::ToolPaths;
 #[command(
     author,
     version,
-    about = "Detecta, convierte y remultiplexa pistas de audio en archivos de video."
+    about = "Detect, convert and remultiplex audio tracks in video files."
 )]
 struct Cli {
-    /// Archivo de video de entrada.
+    /// Input video file.
     input: Option<PathBuf>,
 
-    /// Archivo de salida. Si se omite, se crea junto al original con sufijo _trackforge.
+    /// Output file. If omitted, it is created next to the original with the _trackforge suffix.
     #[arg(short, long)]
     output: Option<PathBuf>,
 
-    /// Indice global de stream de la pista de audio a convertir, tal como lo muestra ffprobe.
+    /// Global stream index of the audio track to convert, as shown by ffprobe.
     #[arg(long)]
     audio_index: Option<usize>,
 
-    /// Formato de audio destino: aac, ac3, mp3, opus, flac o wav.
+    /// Target audio format: aac, ac3, mp3, opus, flac or wav.
     #[arg(short, long)]
     format: Option<TargetFormat>,
 
-    /// Que hacer con la pista convertida: replace o add.
+    /// What to do with the converted track: replace or add.
     #[arg(short, long)]
     mode: Option<TrackMode>,
 
-    /// Marca la pista convertida como pista de audio principal/default.
+    /// Mark the converted track as the primary/default audio track.
     #[arg(long)]
     make_default: bool,
 
-    /// Elimina una o varias pistas de audio por stream index. Ejemplo: --delete-audio 1,3
+    /// Delete one or more audio tracks by stream index. Example: --delete-audio 1,3
     #[arg(long, value_delimiter = ',')]
     delete_audio: Vec<usize>,
 
-    /// Reemplaza el archivo original cuando la conversion termina correctamente.
+    /// Replace the original file when conversion completes successfully.
     #[arg(long)]
     replace_original: bool,
 
-    /// Muestra el comando ffmpeg que se ejecutaria, sin convertir.
+    /// Show the ffmpeg command that would be run without converting.
     #[arg(long)]
     dry_run: bool,
 }
@@ -64,8 +64,8 @@ enum Operation {
 impl Operation {
     fn label(self) -> &'static str {
         match self {
-            Operation::Convert => "Convertir una pista de audio",
-            Operation::DeleteAudio => "Eliminar una o varias pistas de audio",
+            Operation::Convert => "Convert an audio track",
+            Operation::DeleteAudio => "Delete one or more audio tracks",
         }
     }
 }
@@ -87,10 +87,10 @@ fn main() -> Result<()> {
     let tracks = ffprobe::audio_tracks(&probe);
 
     if tracks.is_empty() {
-        bail!("No se encontraron pistas de audio en {}", input.display());
+        bail!("No audio tracks were found in {}", input.display());
     }
 
-    println!("Pistas de audio detectadas:");
+    println!("Detected audio tracks:");
     for track in &tracks {
         println!("  {}", track.label());
     }
@@ -114,7 +114,7 @@ fn main() -> Result<()> {
             true
         } else if is_guided {
             Confirm::with_theme(&theme)
-                .with_prompt("Quieres reemplazar el archivo original cuando termine correctamente")
+                .with_prompt("Replace the original file when processing completes successfully")
                 .default(false)
                 .interact()?
         } else {
@@ -139,14 +139,14 @@ fn main() -> Result<()> {
         };
 
         let args = ffmpeg::build_delete_audio_args(&options);
-        println!("\nComando ffmpeg:");
+        println!("\nffmpeg command:");
         println!("{} {}", tools.ffmpeg.display(), args.join(" "));
 
         if cli.dry_run {
-            println!("\nDry run activado: no se ha escrito ningun archivo.");
+            println!("\nDry run enabled: no files were written.");
             if replace_original {
                 println!(
-                    "Al ejecutar sin --dry-run, el resultado reemplazaria a: {}",
+                    "When run without --dry-run, the result would replace: {}",
                     input.display()
                 );
             }
@@ -157,9 +157,9 @@ fn main() -> Result<()> {
 
         if replace_original {
             replace_original_file(&input, &delete_output)?;
-            println!("\nListo: se ha reemplazado {}", input.display());
+            println!("\nDone: replaced {}", input.display());
         } else {
-            println!("\nListo: {}", delete_output.display());
+            println!("\nDone: {}", delete_output.display());
         }
 
         return Ok(());
@@ -173,13 +173,11 @@ fn main() -> Result<()> {
         Some(stream_index) => tracks
             .iter()
             .find(|track| track.stream_index == stream_index)
-            .with_context(|| {
-                format!("No hay ninguna pista de audio con stream index {stream_index}")
-            })?,
+            .with_context(|| format!("No audio track has stream index {stream_index}"))?,
         None => {
             let labels = tracks.iter().map(|track| track.label()).collect::<Vec<_>>();
             let selected = Select::with_theme(&theme)
-                .with_prompt("Elige la pista de audio")
+                .with_prompt("Choose the audio track")
                 .items(&labels)
                 .default(0)
                 .interact()?;
@@ -195,7 +193,7 @@ fn main() -> Result<()> {
                 .map(|format| format.label())
                 .collect::<Vec<_>>();
             let selected = Select::with_theme(&theme)
-                .with_prompt("Elige el formato destino")
+                .with_prompt("Choose the target format")
                 .items(&formats)
                 .default(0)
                 .interact()?;
@@ -209,7 +207,7 @@ fn main() -> Result<()> {
             let modes = [TrackMode::Replace, TrackMode::Add];
             let labels = modes.iter().map(|mode| mode.label()).collect::<Vec<_>>();
             let selected = Select::with_theme(&theme)
-                .with_prompt("Que quieres hacer con la pista convertida")
+                .with_prompt("What do you want to do with the converted track")
                 .items(&labels)
                 .default(0)
                 .interact()?;
@@ -221,7 +219,7 @@ fn main() -> Result<()> {
         true
     } else if should_prompt_for_default {
         Confirm::with_theme(&theme)
-            .with_prompt("Quieres que la pista convertida sea la principal/default")
+            .with_prompt("Make the converted track the primary/default track")
             .default(false)
             .interact()?
     } else {
@@ -232,7 +230,7 @@ fn main() -> Result<()> {
         true
     } else if should_prompt_for_replace_original {
         Confirm::with_theme(&theme)
-            .with_prompt("Quieres reemplazar el archivo original cuando termine correctamente")
+            .with_prompt("Replace the original file when processing completes successfully")
             .default(false)
             .interact()?
     } else {
@@ -260,14 +258,14 @@ fn main() -> Result<()> {
     };
 
     let args = ffmpeg::build_args(&options);
-    println!("\nComando ffmpeg:");
+    println!("\nffmpeg command:");
     println!("{} {}", tools.ffmpeg.display(), args.join(" "));
 
     if cli.dry_run {
-        println!("\nDry run activado: no se ha escrito ningun archivo.");
+        println!("\nDry run enabled: no files were written.");
         if replace_original {
             println!(
-                "Al ejecutar sin --dry-run, el resultado reemplazaria a: {}",
+                "When run without --dry-run, the result would replace: {}",
                 input.display()
             );
         }
@@ -278,9 +276,9 @@ fn main() -> Result<()> {
 
     if replace_original {
         replace_original_file(&input, &conversion_output)?;
-        println!("\nListo: se ha reemplazado {}", input.display());
+        println!("\nDone: replaced {}", input.display());
     } else {
-        println!("\nListo: {}", conversion_output.display());
+        println!("\nDone: {}", conversion_output.display());
     }
 
     Ok(())
@@ -293,7 +291,7 @@ fn prompt_operation(theme: &ColorfulTheme) -> Result<Operation> {
         .map(|operation| operation.label())
         .collect::<Vec<_>>();
     let selected = Select::with_theme(theme)
-        .with_prompt("Que quieres hacer")
+        .with_prompt("What do you want to do")
         .items(&labels)
         .default(0)
         .interact()?;
@@ -308,12 +306,12 @@ fn prompt_audio_tracks_to_delete(
     loop {
         let labels = tracks.iter().map(|track| track.label()).collect::<Vec<_>>();
         let selected = MultiSelect::with_theme(theme)
-            .with_prompt("Elige las pistas de audio que quieres eliminar")
+            .with_prompt("Choose the audio tracks you want to delete")
             .items(&labels)
             .interact()?;
 
         if selected.is_empty() {
-            println!("Selecciona al menos una pista de audio para eliminar.");
+            println!("Select at least one audio track to delete.");
             continue;
         }
 
@@ -330,7 +328,7 @@ fn validate_audio_indices(tracks: &[AudioTrack], indices: Vec<usize>) -> Result<
             .iter()
             .any(|track| track.stream_index == *stream_index)
         {
-            bail!("No hay ninguna pista de audio con stream index {stream_index}");
+            bail!("No audio track has stream index {stream_index}");
         }
     }
 
@@ -340,7 +338,7 @@ fn validate_audio_indices(tracks: &[AudioTrack], indices: Vec<usize>) -> Result<
 fn prompt_input_path(theme: &ColorfulTheme) -> Result<PathBuf> {
     loop {
         let value: String = Input::with_theme(theme)
-            .with_prompt("Ruta del archivo de video")
+            .with_prompt("Video file path")
             .interact_text()?;
 
         let sanitized = sanitize_path_input(&value);
@@ -355,7 +353,7 @@ fn validate_input_path(path: PathBuf) -> Result<PathBuf> {
     if path.exists() {
         Ok(path)
     } else {
-        bail!("No existe el archivo de entrada: {}", path.display())
+        bail!("The input file does not exist: {}", path.display())
     }
 }
 
@@ -454,14 +452,14 @@ fn backup_path(input: &std::path::Path) -> PathBuf {
 
 fn replace_original_file(original: &std::path::Path, replacement: &std::path::Path) -> Result<()> {
     if original == replacement {
-        bail!("La ruta temporal de salida no puede ser la misma que la del archivo original.")
+        bail!("The temporary output path cannot be the same as the original file path.")
     }
 
     let backup = backup_path(original);
     if backup.exists() {
         fs::remove_file(&backup).with_context(|| {
             format!(
-                "No se pudo eliminar el backup anterior antes de reemplazar: {}",
+                "Could not delete the previous backup before replacement: {}",
                 backup.display()
             )
         })?;
@@ -469,7 +467,7 @@ fn replace_original_file(original: &std::path::Path, replacement: &std::path::Pa
 
     fs::rename(original, &backup).with_context(|| {
         format!(
-            "No se pudo preparar el reemplazo del original. Comprueba que el archivo no esta abierto: {}",
+            "Could not prepare the original file for replacement. Check that the file is not open: {}",
             original.display()
         )
     })?;
@@ -477,13 +475,13 @@ fn replace_original_file(original: &std::path::Path, replacement: &std::path::Pa
     if let Err(error) = fs::rename(replacement, original) {
         let _ = fs::rename(&backup, original);
         bail!(
-            "No se pudo poner el archivo convertido en la ruta original. Se intento restaurar el original. Error: {error}"
+            "Could not place the converted file at the original path. An attempt was made to restore the original. Error: {error}"
         );
     }
 
     fs::remove_file(&backup).with_context(|| {
         format!(
-            "El reemplazo termino, pero no se pudo eliminar el backup temporal: {}",
+            "Replacement completed, but the temporary backup could not be deleted: {}",
             backup.display()
         )
     })?;

@@ -74,7 +74,7 @@ impl std::str::FromStr for TargetFormat {
             "opus" => Ok(TargetFormat::Opus),
             "flac" => Ok(TargetFormat::Flac),
             "wav" | "pcm" => Ok(TargetFormat::Wav),
-            _ => bail!("Formato no soportado: {value}. Usa aac, ac3, mp3, opus, flac o wav."),
+            _ => bail!("Unsupported format: {value}. Use aac, ac3, mp3, opus, flac or wav."),
         }
     }
 }
@@ -88,8 +88,8 @@ pub enum TrackMode {
 impl TrackMode {
     pub fn label(self) -> &'static str {
         match self {
-            TrackMode::Replace => "Sustituir la pista original",
-            TrackMode::Add => "Anadir la pista convertida y conservar la original",
+            TrackMode::Replace => "Replace the original track",
+            TrackMode::Add => "Add the converted track and keep the original",
         }
     }
 }
@@ -101,7 +101,7 @@ impl std::str::FromStr for TrackMode {
         match value.to_lowercase().as_str() {
             "replace" | "sustituir" | "reemplazar" => Ok(TrackMode::Replace),
             "add" | "anadir" | "agregar" => Ok(TrackMode::Add),
-            _ => bail!("Modo no soportado: {value}. Usa replace o add."),
+            _ => bail!("Unsupported mode: {value}. Use replace or add."),
         }
     }
 }
@@ -127,6 +127,26 @@ pub struct DeleteAudioOptions<'a> {
     pub stream_indices: &'a [usize],
     pub default_audio_ordinal: Option<usize>,
     pub titles: &'a [AudioTitleUpdate],
+}
+
+#[allow(dead_code)]
+pub struct ProcessOptions<'a> {
+    pub tools: &'a ToolPaths,
+    pub input: &'a Path,
+    pub output: &'a Path,
+    pub probe: &'a Probe,
+    pub conversion: Option<ConversionPlan<'a>>,
+    pub delete_stream_indices: &'a [usize],
+    pub default_audio_ordinal: Option<usize>,
+    pub titles: &'a [AudioTitleUpdate],
+}
+
+#[allow(dead_code)]
+pub struct ConversionPlan<'a> {
+    pub track: &'a AudioTrack,
+    pub format: TargetFormat,
+    pub mode: TrackMode,
+    pub make_default: bool,
 }
 
 pub struct AudioTitleUpdate {
@@ -177,6 +197,21 @@ pub fn delete_audio_tracks_with_progress(
     )
 }
 
+#[allow(dead_code)]
+pub fn process_with_progress(
+    options: ProcessOptions<'_>,
+    on_progress: impl FnMut(ProgressUpdate) -> Result<()>,
+) -> Result<()> {
+    let args = build_process_args(&options);
+    run_ffmpeg(
+        options.tools,
+        &args,
+        options.input,
+        options.probe,
+        on_progress,
+    )
+}
+
 fn run_ffmpeg(
     tools: &ToolPaths,
     args: &[String],
@@ -189,16 +224,16 @@ fn run_ffmpeg(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .with_context(|| format!("No se pudo ejecutar {}", tools.ffmpeg.display()))?;
+        .with_context(|| format!("Could not run {}", tools.ffmpeg.display()))?;
 
     let stdout = child
         .stdout
         .take()
-        .context("No se pudo leer el progreso de ffmpeg")?;
+        .context("Could not read ffmpeg progress")?;
     let mut stderr = child
         .stderr
         .take()
-        .context("No se pudo leer la salida de error de ffmpeg")?;
+        .context("Could not read ffmpeg error output")?;
 
     let stderr_handle = thread::spawn(move || {
         let mut buffer = String::new();
@@ -219,7 +254,7 @@ fn run_ffmpeg(
 
     let status = child
         .wait()
-        .with_context(|| "No se pudo esperar a que terminase ffmpeg")?;
+        .with_context(|| "Could not wait for ffmpeg to finish")?;
     let stderr = stderr_handle.join().unwrap_or_default();
 
     if status.success() {
@@ -227,9 +262,9 @@ fn run_ffmpeg(
         Ok(())
     } else {
         if stderr.trim().is_empty() {
-            bail!("ffmpeg termino con error.")
+            bail!("ffmpeg exited with an error.")
         } else {
-            bail!("ffmpeg termino con error:\n{stderr}")
+            bail!("ffmpeg exited with an error:\n{stderr}")
         }
     }
 }
@@ -381,6 +416,113 @@ pub fn build_delete_audio_args(options: &DeleteAudioOptions<'_>) -> Vec<String> 
     args
 }
 
+#[allow(dead_code)]
+pub fn build_process_args(options: &ProcessOptions<'_>) -> Vec<String> {
+    let mut args = base_args(options.input);
+    let mut output_stream_index = 0usize;
+    let mut input_audio_ordinal = 0usize;
+    let mut output_audio_ordinal = 0usize;
+    let mut default_output_audio_ordinal = None;
+    let mut converted_output_stream_index = None;
+    let mut converted_audio_ordinal = None;
+
+    for stream in &options.probe.streams {
+        let is_audio = stream.codec_type == "audio";
+        let audio_ordinal = is_audio.then_some(input_audio_ordinal);
+        let is_deleted_audio = is_audio && options.delete_stream_indices.contains(&stream.index);
+        let is_replaced_conversion = options.conversion.as_ref().is_some_and(|conversion| {
+            conversion.mode == TrackMode::Replace && conversion.track.stream_index == stream.index
+        });
+
+        if is_audio {
+            input_audio_ordinal += 1;
+        }
+
+        if is_deleted_audio && !is_replaced_conversion {
+            continue;
+        }
+
+        args.extend(["-map".to_string(), format!("0:{}", stream.index)]);
+
+        if is_replaced_conversion {
+            converted_output_stream_index = Some(output_stream_index);
+            converted_audio_ordinal = Some(output_audio_ordinal);
+        }
+
+        if let Some(audio_ordinal) = audio_ordinal {
+            if let Some(update) = options
+                .titles
+                .iter()
+                .find(|update| update.audio_ordinal == audio_ordinal)
+            {
+                args.extend([
+                    format!("-metadata:s:a:{output_audio_ordinal}"),
+                    format!("title={}", update.title),
+                ]);
+            }
+
+            if options.default_audio_ordinal == Some(audio_ordinal) {
+                default_output_audio_ordinal = Some(output_audio_ordinal);
+            }
+
+            output_audio_ordinal += 1;
+        }
+
+        output_stream_index += 1;
+    }
+
+    if let Some(conversion) = options
+        .conversion
+        .as_ref()
+        .filter(|conversion| conversion.mode == TrackMode::Add)
+    {
+        args.extend([
+            "-map".to_string(),
+            format!("0:{}", conversion.track.stream_index),
+        ]);
+        converted_output_stream_index = Some(output_stream_index);
+        converted_audio_ordinal = Some(output_audio_ordinal);
+
+        if let Some(update) = options
+            .titles
+            .iter()
+            .find(|update| update.audio_ordinal == conversion.track.audio_ordinal)
+        {
+            args.extend([
+                format!("-metadata:s:a:{output_audio_ordinal}"),
+                format!("title={}", update.title),
+            ]);
+        }
+    }
+
+    args.extend(["-c".to_string(), "copy".to_string()]);
+
+    if let (Some(conversion), Some(converted_output_stream_index)) =
+        (&options.conversion, converted_output_stream_index)
+    {
+        args.extend([
+            format!("-c:{converted_output_stream_index}"),
+            conversion.format.codec().to_string(),
+        ]);
+
+        if let Some(bitrate) = target_bitrate(conversion.format, conversion.track) {
+            args.extend([format!("-b:{converted_output_stream_index}"), bitrate]);
+        }
+    }
+
+    if let Some(conversion) = &options.conversion
+        && conversion.make_default
+        && let Some(converted_audio_ordinal) = converted_audio_ordinal
+    {
+        append_default_disposition(&mut args, converted_audio_ordinal);
+    } else if let Some(default_output_audio_ordinal) = default_output_audio_ordinal {
+        append_default_disposition(&mut args, default_output_audio_ordinal);
+    }
+
+    args.push(options.output.display().to_string());
+    args
+}
+
 fn append_default_disposition(args: &mut Vec<String>, audio_ordinal: usize) {
     args.extend(["-disposition:a".to_string(), "0".to_string()]);
     args.extend([
@@ -526,16 +668,16 @@ fn print_progress_update(update: &ProgressUpdate) -> Result<()> {
     match (update.progress, update.eta_seconds) {
         (Some(progress), Some(eta_seconds)) => {
             print!(
-                "\rProgreso: {:>5.1}% | ETA: {}",
+                "\rProgress: {:>5.1}% | ETA: {}",
                 progress * 100.0,
                 format_duration(eta_seconds as f64)
             );
         }
         (Some(_), None) => {
-            print!("\rProgreso:   0.0% | ETA: calculando...");
+            print!("\rProgress:   0.0% | ETA: calculating...");
         }
         (None, _) => {
-            print!("\rProcesado: {}", format_duration(update.processed_seconds));
+            print!("\rProcessed: {}", format_duration(update.processed_seconds));
         }
     }
 
