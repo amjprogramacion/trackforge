@@ -231,11 +231,22 @@ function close() {
 
 .settings-modal-fade-enter-active,
 .settings-modal-fade-leave-active {
-  transition: opacity var(--transition);
+  transition: opacity 150ms ease;
+}
+
+.settings-modal-fade-enter-active .settings-modal-box,
+.settings-modal-fade-leave-active .settings-modal-box {
+  transition: transform 150ms ease, opacity 150ms ease;
 }
 
 .settings-modal-fade-enter-from,
 .settings-modal-fade-leave-to {
+  opacity: 0;
+}
+
+.settings-modal-fade-enter-from .settings-modal-box,
+.settings-modal-fade-leave-to .settings-modal-box {
+  transform: scale(0.95);
   opacity: 0;
 }
 
