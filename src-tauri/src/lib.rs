@@ -322,6 +322,11 @@ fn clear_history(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn is_debug_build() -> bool {
+    cfg!(debug_assertions)
+}
+
 fn analyze_file(path: PathBuf, tools: &ToolPaths) -> Result<VideoFileDto> {
     if !path.exists() {
         bail!("The file does not exist: {}", path.display());
@@ -1675,6 +1680,7 @@ pub fn run() {
             list_history,
             save_history_entry,
             clear_history,
+            is_debug_build,
             convert_audio,
             delete_audio
         ])

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { getVersion } from "@tauri-apps/api/app";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import SettingsModal from "./components/SettingsModal.vue";
@@ -155,12 +156,29 @@ const isHistoryOpen = ref(false);
 const isClearingHistory = ref(false);
 const isSettingsOpen = ref(false);
 const { maxConcurrentJobs } = useSettings();
+const appVersion = ref("0.1.0");
+const devSuffix = ref(import.meta.env.DEV ? ".dev" : "");
 
 const runningFiles = computed(() => files.value.filter((file) => file.status === "running").length);
 const queuedFiles = computed(() => files.value.filter(canProcessFile).length);
 const canProcess = computed(() => files.value.some(canProcessFile) && !isProcessing.value);
 
 onMounted(async () => {
+  try {
+    appVersion.value = await getVersion();
+  } catch {
+    // Keep the fallback version when running the frontend outside Tauri.
+  }
+
+  if (import.meta.env.DEV) {
+    try {
+      const isDebug = await invoke<boolean>("is_debug_build");
+      devSuffix.value = isDebug ? ".dev" : ".dev-release";
+    } catch {
+      devSuffix.value = ".dev";
+    }
+  }
+
   await listen<JobProgress>("trackforge://progress", (event) => {
     const file = files.value.find((item) => item.id === event.payload.jobId);
     if (!file) return;
@@ -1053,7 +1071,7 @@ function formatElapsed(milliseconds: number) {
           <Settings :size="15" />
         </button>
         <h1>TrackForge</h1>
-        <p class="brand-version">v0.1.0</p>
+        <p class="brand-version">v{{ appVersion }}{{ devSuffix }}</p>
       </div>
 
       <div class="sidebar-divider" />
