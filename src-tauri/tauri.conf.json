@@ -24,13 +24,20 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$TEMP/trackforge-thumbnails/**"]
+        "scope": [
+          "$TEMP/trackforge-thumbnails/**"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "dmg",
+      "app"
+    ],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

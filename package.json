@@ -4,6 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "release:check": "node scripts/check-release-version.js",
+    "predev": "node scripts/sync-version.js",
+    "prebuild": "node scripts/sync-version.js",
+    "pretauri": "node scripts/sync-version.js",
+    "pretauri:dev": "node scripts/sync-version.js",
+    "pretauri:build": "node scripts/sync-version.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vue-tsc --noEmit && vite build",
     "tauri": "tauri",

@@ -5,15 +5,17 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bin_dir="$project_root/vendor/ffmpeg/bin"
 temp_dir="$project_root/.tmp/ffmpeg-macos-download"
 
-case "$(uname -m)" in
+requested_arch="${1:-$(uname -m)}"
+
+case "$requested_arch" in
   arm64)
     ffmpeg_arch="arm64"
     ;;
-  x86_64)
+  x86_64|amd64)
     ffmpeg_arch="amd64"
     ;;
   *)
-    echo "Arquitectura macOS no soportada: $(uname -m)" >&2
+    echo "Arquitectura macOS no soportada: $requested_arch" >&2
     exit 1
     ;;
 esac
